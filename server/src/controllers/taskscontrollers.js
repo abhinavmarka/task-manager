@@ -1,113 +1,148 @@
+import tasks from "../models/taskmodel.js";
+import pool from "../config/db.js";
 
-const tasks = [
-  {
-    id: 1,
-    title: "Learn Express",
-    status: "pending"
-  },
-  {
-    id: 2,
-    title: "Learn Node.js",
-    status: "completed"
+const getAllTasks = async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tasks"
+    );
+
+    res.json({
+      success: true,
+      tasks: result.rows
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
-];
-
-const getAllTasks = (req, res) => {
-  res.json({
-    success: true,
-    tasks,
-  });
 };
 
-const getTaskById = (req, res) => {
-  const { id, title } = req.params;
+const getTaskById = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  res.json({
-    success: true,
-    task: {
-      id,
-      title,
-      status: "pending"
+    const result = await pool.query(
+      "SELECT * FROM tasks WHERE id = $1",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
     }
-  });
+
+    res.json({
+      success: true,
+      task: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-const createTask = (req, res) => {
-  const { title, status } = req.body;
+const createTask = async (req, res) => {
+  try {
+    const { title } = req.body;
 
-  if (!title) {
-    return res.status(400).json({
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: "Title is required"
+      });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO tasks(title, status)
+       VALUES($1, $2)
+       RETURNING *`,
+      [title, "pending"]
+    );
+
+    res.status(201).json({
+      success: true,
+      task: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Title is required"
+      message: error.message
     });
   }
-
-  if (!status) {
-    return res.status(400).json({
-      success: false,
-      message: "Status is required"
-    });
-  }
-
-  const newTask = {
-    id: tasks.length + 1,
-    title,
-    status,
-  };
-
-  tasks.push(newTask);
-
-  res.status(201).json({
-    success: true,
-    message: "Task created",
-    task: newTask
-  });
 };
 
-const updateTask = (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
+const updateTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
 
-  const task = tasks.find(
-    task => task.id === Number(id)
-  );
+    const result = await pool.query(
+      `UPDATE tasks
+       SET status = $1
+       WHERE id = $2
+       RETURNING *`,
+      [status, id]
+    );
 
-  if (!task) {
-    return res.status(404).json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      task: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Task not found"
+      message: error.message
     });
   }
-
-  task.status = status;
-
-  res.json({
-    success: true,
-    task
-  });
 };
 
-const deleteTask = (req, res) => {
-  const { id } = req.params;
+const deleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const taskIndex = tasks.findIndex(
-    task => task.id === Number(id)
-  );
+    const result = await pool.query(
+      `DELETE FROM tasks
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
 
-  if (taskIndex === -1) {
-    return res.status(404).json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Task deleted",
+      task: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Task not found"
+      message: error.message
     });
   }
-
-  const deletedTask = tasks.splice(taskIndex, 1);
-
-  res.json({
-    success: true,
-    message: "Task deleted",
-    task :  deletedTask[0]
-  });
 };
 
 export  {
